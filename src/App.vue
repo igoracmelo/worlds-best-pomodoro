@@ -1,9 +1,12 @@
 <template>
-  <div class="app" :class="{
+  <div
+    class="app"
+    :class="{
       'timer-active': timerId,
       'pomodori': timerType === 'pomodori',
       'break': timerType === 'break',
-    }">
+    }"
+  >
     <!-- <audio
       src="/public/tick.mp3"
       ref="audioTick"
@@ -11,41 +14,88 @@
       crossorigin="anonymous"
     /> -->
     <div class="container">
+      <button
+        class="pip-button"
+        @click="togglePiP"
+      >
+        PiP
+      </button>
       <div class="timer">
-        <input @input="onDurationInput" type="text" v-model="modelHours">
-        <div class="sep">:</div>
-        <input @input="onDurationInput" type="text" v-model="modelMins">
-        <div class="sep">:</div>
-        <input @input="onDurationInput" type="text" v-model="modelSecs">
+        <input
+          v-model="modelHours"
+          type="text"
+          @input="onDurationInput"
+        >
+        <div class="sep">
+          :
+        </div>
+        <input
+          v-model="modelMins"
+          type="text"
+          @input="onDurationInput"
+        >
+        <div class="sep">
+          :
+        </div>
+        <input
+          v-model="modelSecs"
+          type="text"
+          @input="onDurationInput"
+        >
       </div>
 
-      <div class="timer-details" v-if="timerType === 'pomodori'">
+      <div
+        v-if="timerType === 'pomodori'"
+        class="timer-details"
+      >
         <div>What do you plan to do in this pomodori?</div>
-        <input type="text" v-model="taskDescription">
+        <input
+          v-model="taskDescription"
+          type="text"
+        >
       </div>
 
-      <div class="timer-details break" v-else>
+      <div
+        v-else
+        class="timer-details break"
+      >
         <div>It is break time.</div>
-        <input type="text" v-model="taskDescription">
+        <input
+          v-model="taskDescription"
+          type="text"
+        >
       </div>
 
       <div class="timer-btns">
-        <button class="toggle-timer" @click="toggleTimer">
-          <span v-if="!this.timerId">Start</span>
+        <button
+          class="toggle-timer"
+          @click="toggleTimer"
+        >
+          <span v-if="!timerId">Start</span>
           <span v-else>Stop</span>
         </button>
-        <button class="reset-timer" @click="resetTimer">Reset</button>
-        <button class="skip-timer" @click="skipTimer">Skip</button>
+        <button
+          class="reset-timer"
+          @click="resetTimer"
+        >
+          Reset
+        </button>
+        <button
+          class="skip-timer"
+          @click="skipTimer"
+        >
+          Skip
+        </button>
       </div>
 
-      <div class="stats">
+      <!-- <div class="stats">
         <span class="title">Stats</span>
         <div><b>{{ todayTimerCount['pomodori'] }}</b> pomodori today</div>
         <div><b>{{ todayTimerCount['break'] }}</b> breaks today</div>
         <br>
         <div><b>{{ totalTimerCount['pomodori'] }}</b> pomodori in total</div>
         <div><b>{{ totalTimerCount['break'] }}</b> breaks in total</div>
-      </div>
+      </div> -->
     </div>
   </div>
 </template>
@@ -82,6 +132,24 @@ export default defineComponent({
       totalSecs: 0,
       taskDescription: '',
       timerId: undefined as number | undefined
+    }
+  },
+
+  watch: {
+    timerType () {
+      storeString('timerType', this.timerType)
+      this.pauseTimer()
+      this.totalSecs = this.timerDuration[this.timerType]
+    },
+
+    totalSecs () {
+      this.modelHours = this.formatNum(this.secsTo('h').toString())
+      this.modelMins = this.formatNum(this.secsTo('m').toString())
+      this.modelSecs = this.formatNum(this.secsTo('s').toString())
+    },
+
+    taskDescription () {
+      storeString('taskDescription', this.taskDescription)
     }
   },
 
@@ -161,6 +229,29 @@ export default defineComponent({
       }
     },
 
+    async togglePiP () {
+      const video = document.createElement('video')
+      video.style.display = 'none'
+      video.autoplay = true
+      // @ts-ignore
+      // video.autoPictureInPicture = true
+      this.$el.appendChild(video)
+
+      // @ts-ignore
+      const stream = await navigator.mediaDevices.getDisplayMedia({ preferCurrentTab: true })
+      video.srcObject = stream
+
+      // @ts-ignore
+      video.onloadedmetadata = () => video.requestPictureInPicture()
+
+      // @ts-ignore
+      video.onleavepictureinpicture = stream.oninactive = () => {
+        stream.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+        // @ts-ignore
+        document.exitPictureInPicture()
+      }
+    },
+
     timerFinished () {
       this.todayTimerCount[this.timerType]++
       this.totalTimerCount[this.timerType]++
@@ -187,24 +278,6 @@ export default defineComponent({
     today () {
       return new Date().toISOString().split('T')[0]
     }
-  },
-
-  watch: {
-    timerType () {
-      storeString('timerType', this.timerType)
-      this.pauseTimer()
-      this.totalSecs = this.timerDuration[this.timerType]
-    },
-
-    totalSecs () {
-      this.modelHours = this.formatNum(this.secsTo('h').toString())
-      this.modelMins = this.formatNum(this.secsTo('m').toString())
-      this.modelSecs = this.formatNum(this.secsTo('s').toString())
-    },
-
-    taskDescription () {
-      storeString('taskDescription', this.taskDescription)
-    }
   }
 })
 </script>
@@ -218,6 +291,7 @@ export default defineComponent({
   color: inherit;
   border: none;
   outline: none;
+  background-color: transparent;
 }
 
 b {
@@ -226,6 +300,13 @@ b {
 
 button {
   cursor: pointer;
+}
+
+html {
+  font-size: 62.5%;
+  font-size: 80%;
+  font-size: 100%;
+  font-size: 140%;
 }
 
 .app {
@@ -237,8 +318,9 @@ button {
   place-items: center;
   width: 100%;
   height: 100vh;
-  font-size: 16px;
+  font-size: 1.6rem;
   color: white;
+  position: relative;
   transition: .5s background-color;
 
   &.pomodori {
@@ -258,28 +340,39 @@ button {
   }
 }
 
+.pip-button {
+  width: 4rem;
+  height: 4rem;
+  display: grid;
+  place-items: center;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background-color: black;
+  border-radius: 50%;
+}
+
 .container {
-  width: min(100%, 350px);
+  width: min(100%, 35rem);
   height: 90vh;
-  padding: 20px 20px;
+  padding: 2.0rem 2.0rem;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 2.0rem;
 }
 
 .timer {
   display: flex;
   justify-content: center;
-  font-size: 70px;
+  font-size: 7.0rem;
   font-weight: bold;
 
   input {
     width: 1.1em;
-    font-size: 70px;
+    font-size: 7.0rem;
     border: none;
-    background-color: transparent;
     &:focus {
-      outline: 2px solid #fa0a;
+      outline: .2rem solid #fa0a;
     }
   }
 }
@@ -287,12 +380,13 @@ button {
 .timer-details {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 1.0rem;
 
   input {
-    border-radius: 3px;
+    background-color: #fff;
+    border-radius: .3rem;
     max-width: 100%;
-    padding: 10px;
+    padding: 1.0rem;
     color: rgb(8, 24, 16);
   }
 
@@ -310,20 +404,20 @@ button {
   color: rgb(48, 48, 48);
 
   :first-child {
-    border-top-left-radius: 3px;
-    border-bottom-left-radius: 3px;
+    border-top-left-radius: .3rem;
+    border-bottom-left-radius: .3rem;
   }
 
   :last-child {
-    border-top-right-radius: 3px;
-    border-bottom-right-radius: 3px;
+    border-top-right-radius: .3rem;
+    border-bottom-right-radius: .3rem;
   }
 
   > * {
     flex: 1;
     text-transform: uppercase;
-    font-size: 20px;
-    padding: 10px 20px;
+    font-size: 2.0rem;
+    padding: 1.0rem 2.0rem;
     border: none;
   }
 
@@ -343,10 +437,10 @@ button {
 .stats {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: .6rem;
 
   .title {
-    font-size: 30px;
+    font-size: 3.0rem;
   }
 
 }
