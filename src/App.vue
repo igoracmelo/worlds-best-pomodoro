@@ -22,11 +22,15 @@
       </button>
       <div class="timer">
         <input
+          v-if="enableHours"
           v-model="modelHours"
           type="text"
           @input="onDurationInput"
         >
-        <div class="sep">
+        <div
+          v-if="enableHours"
+          class="sep"
+        >
           :
         </div>
         <input
@@ -48,10 +52,10 @@
         v-if="timerType === 'pomodori'"
         class="timer-details"
       >
-        <div>What do you plan to do in this pomodori?</div>
         <input
           v-model="taskDescription"
           type="text"
+          placeholder="E.g.: wash the dishes"
         >
       </div>
 
@@ -60,10 +64,6 @@
         class="timer-details break"
       >
         <div>It is break time.</div>
-        <input
-          v-model="taskDescription"
-          type="text"
-        >
       </div>
 
       <div class="timer-btns">
@@ -75,12 +75,14 @@
           <span v-else>Stop</span>
         </button>
         <button
+          v-if="totalSecs !== timerDuration[timerType]"
           class="reset-timer"
           @click="resetTimer"
         >
           Reset
         </button>
         <button
+          v-else
           class="skip-timer"
           @click="skipTimer"
         >
@@ -126,6 +128,7 @@ export default defineComponent({
       tickSound: true,
       timeoutSound: true,
       timerType: 'pomodori' as TimerType,
+      enableHours: false,
       modelHours: '00',
       modelMins: '00',
       modelSecs: '00',
@@ -358,18 +361,19 @@ html {
   padding: 2.0rem 2.0rem;
   display: flex;
   flex-direction: column;
-  gap: 2.0rem;
+  gap: 1.0rem;
 }
 
 .timer {
   display: flex;
   justify-content: center;
+  align-items: center;
   font-size: 7.0rem;
   font-weight: bold;
 
   input {
     width: 1.1em;
-    font-size: 7.0rem;
+    font-size: 12rem;
     border: none;
     &:focus {
       outline: .2rem solid #fa0a;
@@ -383,6 +387,8 @@ html {
   gap: 1.0rem;
 
   input {
+    font-size: 2.5rem;
+    font-weight: bold;
     background-color: #fff;
     border-radius: .3rem;
     max-width: 100%;
@@ -391,8 +397,10 @@ html {
   }
 
   &.break {
-    input {
-      visibility: hidden;
+    div {
+      text-align: center;
+      font-size: 3rem;
+      padding: .7rem 0;
     }
   }
 }
