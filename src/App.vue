@@ -55,7 +55,7 @@
         <input
           v-model="taskDescription"
           type="text"
-          placeholder="E.g.: wash the dishes"
+          placeholder="(Optional) Current task"
         >
       </div>
 
@@ -72,7 +72,7 @@
           @click="toggleTimer"
         >
           <span v-if="!timerId">Start</span>
-          <span v-else>Stop</span>
+          <span v-else>Pause</span>
         </button>
         <button
           v-if="totalSecs !== timerDuration[timerType]"
@@ -90,6 +90,11 @@
         </button>
       </div>
 
+      <video
+        ref="screenVideo"
+        style="display: none"
+        autoplay
+      />
       <!-- <div class="stats">
         <span class="title">Stats</span>
         <div><b>{{ todayTimerCount['pomodori'] }}</b> pomodori today</div>
@@ -134,6 +139,7 @@ export default defineComponent({
       modelSecs: '00',
       totalSecs: 0,
       taskDescription: '',
+      screenStream: null as MediaStream | null,
       timerId: undefined as number | undefined
     }
   },
@@ -233,26 +239,47 @@ export default defineComponent({
     },
 
     async togglePiP () {
-      const video = document.createElement('video')
-      video.style.display = 'none'
-      video.autoplay = true
+      if (this.screenStream) {
+        this.stopPiP()
+      } else {
+        this.startPiP()
+      }
+    },
+
+    async startPiP () {
+      const video = this.$refs.screenVideo as HTMLVideoElement
       // @ts-ignore
       // video.autoPictureInPicture = true
-      this.$el.appendChild(video)
 
       // @ts-ignore
-      const stream = await navigator.mediaDevices.getDisplayMedia({ preferCurrentTab: true })
-      video.srcObject = stream
+      this.screenStream = await navigator.mediaDevices.getDisplayMedia({ preferCurrentTab: true, audio: false })
+      video.srcObject = this.screenStream
 
       // @ts-ignore
       video.onloadedmetadata = () => video.requestPictureInPicture()
 
       // @ts-ignore
-      video.onleavepictureinpicture = stream.oninactive = () => {
-        stream.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+      video.onleavepictureinpicture = this.screenStream.oninactive = () => {
+        if (this.screenStream) {
+          this.screenStream.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+        }
         // @ts-ignore
         document.exitPictureInPicture()
       }
+    },
+
+    async stopPiP () {
+      // @ts-ignore
+      if (document.pictureInPictureElement) {
+        // @ts-ignore
+        document.exitPictureInPicture()
+      }
+      if (this.screenStream) {
+        this.screenStream.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+      }
+
+      const video = this.$refs.screenVideo as HTMLVideoElement
+      video.srcObject = null
     },
 
     timerFinished () {
@@ -306,10 +333,7 @@ button {
 }
 
 html {
-  font-size: 62.5%;
-  font-size: 80%;
-  font-size: 100%;
-  font-size: 140%;
+  font-size: min(2.5vw, 3vh);
 }
 
 .app {
@@ -387,7 +411,7 @@ html {
   gap: 1.0rem;
 
   input {
-    font-size: 2.5rem;
+    font-size: 2rem;
     font-weight: bold;
     background-color: #fff;
     border-radius: .3rem;
