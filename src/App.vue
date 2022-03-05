@@ -100,6 +100,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import PictureInPicture from './components/PictureInPicture.vue'
+import { secondsTo, formatTimerNumber } from './utils/TimerUtils'
 import { storeJSON, loadJSON, storeString, loadString } from './utils/localStorageUtils'
 
 type TimerType = 'pomodori' | 'break'
@@ -158,9 +159,9 @@ for (let i = 0; i < localStorage.length; i++) {
 }
 
 function updateTimerNumbers () {
-  modelHours.value = formatNum(secsTo('h').toString())
-  modelMins.value = formatNum(secsTo('m').toString())
-  modelSecs.value = formatNum(secsTo('s').toString())
+  modelHours.value = formatTimerNumber(secondsTo(totalSecs.value, 'h').toString())
+  modelMins.value = formatTimerNumber(secondsTo(totalSecs.value, 'm').toString())
+  modelSecs.value = formatTimerNumber(secondsTo(totalSecs.value, 's').toString())
 }
 
 function startTimer () {
@@ -208,9 +209,9 @@ function tickTimer () {
 }
 
 function onDurationInput () {
-  modelHours.value = formatNum(modelHours.value)
-  modelMins.value = formatNum(modelMins.value)
-  modelSecs.value = formatNum(modelSecs.value)
+  modelHours.value = formatTimerNumber(modelHours.value)
+  modelMins.value = formatTimerNumber(modelMins.value)
+  modelSecs.value = formatTimerNumber(modelSecs.value)
 
   const h = parseInt(modelHours.value)
   const m = parseInt(modelMins.value)
@@ -227,21 +228,6 @@ function timerFinished () {
 
   storeJSON(`timerCount-${today()}`, todayTimerCount.value)
   skipTimer()
-}
-
-function secsTo (output: 'h' | 'm' | 's'): number {
-  if (output === 'h') {
-    return Math.floor(totalSecs.value / 60 / 60)
-  }
-  if (output === 'm') {
-    return Math.floor(totalSecs.value / 60 % 60)
-  }
-  return Math.floor(totalSecs.value % 60)
-}
-
-function formatNum (num: string) {
-  num = (parseInt(num) || 0).toString()
-  return ('00' + num).slice(-2)
 }
 
 function today () {
