@@ -14,12 +14,7 @@
       crossorigin="anonymous"
     /> -->
     <div class="container">
-      <button
-        class="pip-button"
-        @click="togglePiP"
-      >
-        PiP
-      </button>
+      <picture-in-picture />
       <div class="timer">
         <input
           v-if="enableHours"
@@ -90,11 +85,6 @@
         </button>
       </div>
 
-      <video
-        ref="screenVideo"
-        style="display: none"
-        autoplay
-      />
       <!-- <div class="stats">
         <span class="title">Stats</span>
         <div><b>{{ todayTimerCount['pomodori'] }}</b> pomodori today</div>
@@ -109,6 +99,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import PictureInPicture from './components/PictureInPicture.vue'
 import { storeJSON, loadJSON, storeString, loadString } from './utils/localStorageUtils'
 
 type TimerType = 'pomodori' | 'break'
@@ -116,8 +107,6 @@ type TimerCount = {
   pomodori: number
   break: number
 }
-
-const screenVideo = ref(null as HTMLVideoElement | null)
 
 // const tickSound = ref(true)
 // const timeoutSound = ref(true)
@@ -137,8 +126,6 @@ const taskDescription = ref(loadString('taskDescription') || '')
 watch(taskDescription, () => {
   storeString('taskDescription', taskDescription.value)
 })
-
-const screenStream = ref<MediaStream|null>(null)
 
 const timerId = ref<number|undefined>(undefined)
 
@@ -234,50 +221,6 @@ function onDurationInput () {
   storeJSON('timerDuration', timerDuration.value)
 }
 
-async function startPiP () {
-  // const video = this.$refs.screenVideo as HTMLVideoElement
-  // @ts-ignore
-  // video.autoPictureInPicture = true
-
-  // @ts-ignore
-  screenStream.value = await navigator.mediaDevices.getDisplayMedia({ preferCurrentTab: true, audio: false })
-
-  if (screenVideo.value) {
-    screenVideo.value.srcObject = screenStream.value
-
-    // @ts-ignore
-    screenVideo.value.onloadedmetadata = () => screenVideo.value.requestPictureInPicture()
-
-    // @ts-ignore
-    screenVideo.value.onleavepictureinpicture = screenStream.value.oninactive = () => {
-      stopPiP()
-    }
-  }
-}
-
-async function stopPiP () {
-  // @ts-ignore
-  if (document.pictureInPictureElement) {
-    // @ts-ignore
-    document.exitPictureInPicture()
-  }
-  if (screenStream.value) {
-    screenStream.value.getTracks().forEach((track: MediaStreamTrack) => track.stop())
-  }
-
-  if (screenVideo.value) {
-    screenVideo.value.srcObject = null
-  }
-}
-
-async function togglePiP () {
-  if (screenStream.value) {
-    stopPiP()
-  } else {
-    startPiP()
-  }
-}
-
 function timerFinished () {
   todayTimerCount.value[timerType.value]++
   totalTimerCount.value[timerType.value]++
@@ -362,16 +305,10 @@ html {
   }
 }
 
-.pip-button {
-  width: 4rem;
-  height: 4rem;
-  display: grid;
-  place-items: center;
+.picture-in-picture {
   position: absolute;
   top: 1rem;
   right: 1rem;
-  background-color: black;
-  border-radius: 50%;
 }
 
 .container {
