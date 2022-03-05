@@ -9,6 +9,6 @@ export const secondsTo = (seconds: number, output: 'h' | 'm' | 's'): number => {
 }
 
 export const formatTimerNumber = (num: string): string => {
-  num = (parseInt(num) || 0).toString()
+  num = (parseInt(num) % 60 || 0).toString()
   return ('00' + num).slice(-2)
 }
