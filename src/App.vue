@@ -107,209 +107,204 @@
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue'
+<script setup lang="ts">
+import { ref, watch } from 'vue'
 import { storeJSON, loadJSON, storeString, loadString } from './utils/localStorageUtils'
 
 type TimerType = 'pomodori' | 'break'
+type TimerCount = {
+  pomodori: number
+  break: number
+}
 
-export default defineComponent({
-  name: 'App',
+const screenVideo = ref(null as HTMLVideoElement | null)
 
-  data () {
-    return {
-      timerDuration: {
-        pomodori: 25 * 60,
-        break: 5 * 60
-      },
-      todayTimerCount: {
-        pomodori: 0,
-        break: 0
-      },
-      totalTimerCount: {
-        pomodori: 0,
-        break: 0
-      },
-      tickSound: true,
-      timeoutSound: true,
-      timerType: 'pomodori' as TimerType,
-      enableHours: false,
-      modelHours: '00',
-      modelMins: '00',
-      modelSecs: '00',
-      totalSecs: 0,
-      taskDescription: '',
-      screenStream: null as MediaStream | null,
-      timerId: undefined as number | undefined
+// const tickSound = ref(true)
+// const timeoutSound = ref(true)
+const enableHours = ref(false)
+const modelHours = ref('00')
+const modelMins = ref('00')
+const modelSecs = ref('00')
+
+const timerType = ref((loadString('timerType') || 'pomodori') as TimerType)
+watch(timerType, () => {
+  storeString('timerType', timerType.value)
+  pauseTimer()
+  totalSecs.value = timerDuration.value[timerType.value]
+})
+
+const taskDescription = ref(loadString('taskDescription') || '')
+watch(taskDescription, () => {
+  storeString('taskDescription', taskDescription.value)
+})
+
+const screenStream = ref<MediaStream|null>(null)
+
+const timerId = ref<number|undefined>(undefined)
+
+const timerDuration = ref<TimerCount>(loadJSON('timerDuration') || {
+  pomodori: 25 * 60,
+  break: 5 * 60
+})
+
+const totalSecs = ref<number>(loadJSON('totalSecs') || timerDuration.value[timerType.value])
+watch(totalSecs, updateTimerNumbers)
+updateTimerNumbers()
+
+const todayTimerCount = ref<TimerCount>(loadJSON(`timerCount-${today()}`) || {
+  pomodori: 0,
+  break: 0
+})
+
+const totalTimerCount = ref<TimerCount>({
+  pomodori: 0,
+  break: 0
+})
+
+for (let i = 0; i < localStorage.length; i++) {
+  const key = localStorage.key(i)
+  if (key?.startsWith('timerCount-')) {
+    const json = loadJSON(key) as any
+    totalTimerCount.value.pomodori += json?.pomodori || 0
+    totalTimerCount.value.break += json?.break || 0
+  }
+}
+
+function updateTimerNumbers () {
+  modelHours.value = formatNum(secsTo('h').toString())
+  modelMins.value = formatNum(secsTo('m').toString())
+  modelSecs.value = formatNum(secsTo('s').toString())
+}
+
+function startTimer () {
+  timerId.value = setInterval(() => {
+    if (totalSecs.value) {
+      totalSecs.value--
+    } else {
+      timerFinished()
+      pauseTimer()
     }
-  },
+  }, 1000)
+}
 
-  watch: {
-    timerType () {
-      storeString('timerType', this.timerType)
-      this.pauseTimer()
-      this.totalSecs = this.timerDuration[this.timerType]
-    },
+function pauseTimer () {
+  clearInterval(timerId.value)
+  timerId.value = undefined
+}
 
-    totalSecs () {
-      this.modelHours = this.formatNum(this.secsTo('h').toString())
-      this.modelMins = this.formatNum(this.secsTo('m').toString())
-      this.modelSecs = this.formatNum(this.secsTo('s').toString())
-    },
+function toggleTimer () {
+  // const audioTick = this.$refs.audioTick as HTMLAudioElement
+  // audioTick.play()
 
-    taskDescription () {
-      storeString('taskDescription', this.taskDescription)
-    }
-  },
+  if (timerId.value) {
+    pauseTimer()
+  } else {
+    startTimer()
+  }
+}
 
-  created () {
-    this.taskDescription = loadString('taskDescription') || ''
-    this.timerDuration = loadJSON('timerDuration') || this.timerDuration
-    this.timerType = loadString('timerType') as TimerType || this.timerType
-    this.todayTimerCount = loadJSON(`timerCount-${this.today()}`) || this.todayTimerCount
-    this.totalSecs = loadJSON('totalSecs') || this.timerDuration[this.timerType]
+function resetTimer () {
+  pauseTimer()
+  totalSecs.value = timerDuration.value[timerType.value]
+}
 
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key?.startsWith('timerCount-')) {
-        const json = loadJSON(key) as any
-        this.totalTimerCount.pomodori += json?.pomodori || 0
-        this.totalTimerCount.break += json?.break || 0
-      }
-    }
-  },
+function skipTimer () {
+  timerType.value = timerType.value === 'pomodori' ? 'break' : 'pomodori'
+}
 
-  methods: {
-    onDurationInput () {
-      this.modelHours = this.formatNum(this.modelHours)
-      this.modelMins = this.formatNum(this.modelMins)
-      this.modelSecs = this.formatNum(this.modelSecs)
+function tickTimer () {
+  if (totalSecs.value) {
+    totalSecs.value--
+  } else {
+    toggleTimer()
+  }
+}
 
-      const h = parseInt(this.modelHours)
-      const m = parseInt(this.modelMins)
-      const s = parseInt(this.modelSecs)
+function onDurationInput () {
+  modelHours.value = formatNum(modelHours.value)
+  modelMins.value = formatNum(modelMins.value)
+  modelSecs.value = formatNum(modelSecs.value)
 
-      this.totalSecs = h * 60 * 60 + m * 60 + s
-      this.timerDuration[this.timerType] = this.totalSecs
-      storeJSON('timerDuration', this.timerDuration)
-    },
+  const h = parseInt(modelHours.value)
+  const m = parseInt(modelMins.value)
+  const s = parseInt(modelSecs.value)
 
-    toggleTimer () {
-      // const audioTick = this.$refs.audioTick as HTMLAudioElement
-      // audioTick.play()
+  totalSecs.value = h * 60 * 60 + m * 60 + s
+  timerDuration.value[timerType.value] = totalSecs.value
+  storeJSON('timerDuration', timerDuration.value)
+}
 
-      if (this.timerId) {
-        this.pauseTimer()
-      } else {
-        this.startTimer()
-      }
-    },
+async function startPiP () {
+  // const video = this.$refs.screenVideo as HTMLVideoElement
+  // @ts-ignore
+  // video.autoPictureInPicture = true
 
-    startTimer () {
-      this.timerId = setInterval(() => {
-        if (this.totalSecs) {
-          this.totalSecs--
-        } else {
-          this.timerFinished()
-          this.pauseTimer()
-        }
-      }, 1000)
-    },
+  // @ts-ignore
+  screenStream.value = await navigator.mediaDevices.getDisplayMedia({ preferCurrentTab: true, audio: false })
 
-    pauseTimer () {
-      clearInterval(this.timerId)
-      this.timerId = undefined
-    },
+  if (screenVideo.value) {
+    screenVideo.value.srcObject = screenStream.value
 
-    resetTimer () {
-      this.pauseTimer()
-      this.totalSecs = this.timerDuration[this.timerType]
-    },
+    // @ts-ignore
+    screenVideo.value.onloadedmetadata = () => screenVideo.value.requestPictureInPicture()
 
-    skipTimer () {
-      this.timerType = this.timerType === 'pomodori' ? 'break' : 'pomodori'
-    },
-
-    tickTimer () {
-      if (this.totalSecs) {
-        this.totalSecs--
-      } else {
-        this.toggleTimer()
-      }
-    },
-
-    async togglePiP () {
-      if (this.screenStream) {
-        this.stopPiP()
-      } else {
-        this.startPiP()
-      }
-    },
-
-    async startPiP () {
-      const video = this.$refs.screenVideo as HTMLVideoElement
-      // @ts-ignore
-      // video.autoPictureInPicture = true
-
-      // @ts-ignore
-      this.screenStream = await navigator.mediaDevices.getDisplayMedia({ preferCurrentTab: true, audio: false })
-      video.srcObject = this.screenStream
-
-      // @ts-ignore
-      video.onloadedmetadata = () => video.requestPictureInPicture()
-
-      // @ts-ignore
-      video.onleavepictureinpicture = this.screenStream.oninactive = () => {
-        if (this.screenStream) {
-          this.screenStream.getTracks().forEach((track: MediaStreamTrack) => track.stop())
-        }
-        // @ts-ignore
-        document.exitPictureInPicture()
-      }
-    },
-
-    async stopPiP () {
-      // @ts-ignore
-      if (document.pictureInPictureElement) {
-        // @ts-ignore
-        document.exitPictureInPicture()
-      }
-      if (this.screenStream) {
-        this.screenStream.getTracks().forEach((track: MediaStreamTrack) => track.stop())
-      }
-
-      const video = this.$refs.screenVideo as HTMLVideoElement
-      video.srcObject = null
-    },
-
-    timerFinished () {
-      this.todayTimerCount[this.timerType]++
-      this.totalTimerCount[this.timerType]++
-
-      storeJSON(`timerCount-${this.today()}`, this.todayTimerCount)
-      this.skipTimer()
-    },
-
-    secsTo (output: 'h' | 'm' | 's'): number {
-      if (output === 'h') {
-        return Math.floor(this.totalSecs / 60 / 60)
-      }
-      if (output === 'm') {
-        return Math.floor(this.totalSecs / 60 % 60)
-      }
-      return Math.floor(this.totalSecs % 60)
-    },
-
-    formatNum (num: string) {
-      num = (parseInt(num) || 0).toString()
-      return ('00' + num).slice(-2)
-    },
-
-    today () {
-      return new Date().toISOString().split('T')[0]
+    // @ts-ignore
+    screenVideo.value.onleavepictureinpicture = screenStream.value.oninactive = () => {
+      stopPiP()
     }
   }
-})
+}
+
+async function stopPiP () {
+  // @ts-ignore
+  if (document.pictureInPictureElement) {
+    // @ts-ignore
+    document.exitPictureInPicture()
+  }
+  if (screenStream.value) {
+    screenStream.value.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+  }
+
+  if (screenVideo.value) {
+    screenVideo.value.srcObject = null
+  }
+}
+
+async function togglePiP () {
+  if (screenStream.value) {
+    stopPiP()
+  } else {
+    startPiP()
+  }
+}
+
+function timerFinished () {
+  todayTimerCount.value[timerType.value]++
+  totalTimerCount.value[timerType.value]++
+
+  storeJSON(`timerCount-${today()}`, todayTimerCount.value)
+  skipTimer()
+}
+
+function secsTo (output: 'h' | 'm' | 's'): number {
+  if (output === 'h') {
+    return Math.floor(totalSecs.value / 60 / 60)
+  }
+  if (output === 'm') {
+    return Math.floor(totalSecs.value / 60 % 60)
+  }
+  return Math.floor(totalSecs.value % 60)
+}
+
+function formatNum (num: string) {
+  num = (parseInt(num) || 0).toString()
+  return ('00' + num).slice(-2)
+}
+
+function today () {
+  return new Date().toISOString().split('T')[0]
+}
+
 </script>
 
 <style lang="scss">
